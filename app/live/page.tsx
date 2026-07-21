@@ -4,7 +4,7 @@ import { useAppState } from "@/components/app-state";
 import { liveSessions } from "@/lib/data";
 
 export default function LivePage() {
-  const { hasEntitlement } = useAppState();
+  const { hasEntitlement, liveSessions, joinLiveSession } = useAppState();
 
   return (
     <main className="shell stack">
@@ -27,13 +27,26 @@ export default function LivePage() {
                 : "Unlock a plan to join this session live. Recording availability can still be shown after publication."}
             </p>
             <div className="actions">
-              <button type="button" className="button" disabled={!hasEntitlement}>
-                {hasEntitlement ? "Generate demo join token" : "Entitlement required"}
+              <button
+                type="button"
+                className="button"
+                disabled={!hasEntitlement}
+                onClick={async () => {
+                  if (!hasEntitlement) {
+                    return;
+                  }
+
+                  const result = await joinLiveSession(session.id);
+                  window.alert(`Join token issued: ${result.token}`);
+                }}
+              >
+                {hasEntitlement ? "Generate join token" : "Entitlement required"}
               </button>
               <span className="small muted">
                 Recording: {session.recordingPublished ? "Published" : "Pending after session"}
               </span>
             </div>
+            {session.recordingUrl ? <a className="small" href={session.recordingUrl}>Open recording</a> : null}
           </div>
         ))}
       </section>

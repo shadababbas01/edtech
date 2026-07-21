@@ -6,11 +6,14 @@ import { useAppState } from "@/components/app-state";
 import type { Lesson } from "@/lib/data";
 
 export function LessonActions({ lesson }: { lesson: Lesson }) {
-  const { hasEntitlement, progress, updateProgress, submitQuizAttempt, submitDoubt } = useAppState();
+  const { hasEntitlement, progress, updateProgress, submitQuiz, submitDoubt, issuePlaybackToken, learners } =
+    useAppState();
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState<number | null>(null);
   const [doubtTitle, setDoubtTitle] = useState("");
   const [doubtMessage, setDoubtMessage] = useState("");
+  const [playbackToken, setPlaybackToken] = useState<string | null>(null);
+  const [watermark, setWatermark] = useState<string | null>(null);
 
   const unlocked = lesson.isFree || hasEntitlement;
   const lessonProgress = progress[lesson.id] ?? 0;
@@ -23,22 +26,9 @@ export function LessonActions({ lesson }: { lesson: Lesson }) {
     return `${score}/${lesson.quiz.length} correct`;
   }, [lesson.quiz.length, score]);
 
-  function handleSubmitQuiz() {
-    let nextScore = 0;
-
-    lesson.quiz.forEach((item) => {
-      if ((selectedAnswers[item.id] ?? "").trim().toLowerCase() === item.answer.trim().toLowerCase()) {
-        nextScore += 1;
-      }
-    });
-
-    setScore(nextScore);
-    submitQuizAttempt({
-      lessonId: lesson.id,
-      score: nextScore,
-      submittedAt: new Date().toISOString()
-    });
-    updateProgress(lesson.id, 100);
+  async function handleSubmitQuiz() {
+    const result = await submitQuiz(lesson.id, selectedAnswers);
+    setScore(result.score);
   }
 
   function handleDoubtSubmit() {
@@ -46,7 +36,7 @@ export function LessonActions({ lesson }: { lesson: Lesson }) {
       return;
     }
 
-    submitDoubt({
+    void submitDoubt({
       lessonId: lesson.id,
       title: doubtTitle,
       message: doubtMessage
@@ -72,14 +62,26 @@ export function LessonActions({ lesson }: { lesson: Lesson }) {
       <div className="panel">
         <h3>Learning controls</h3>
         <div className="actions">
-          <button type="button" className="button" onClick={() => updateProgress(lesson.id, lessonProgress + 25)}>
+          <button type="button" className="button" onClick={() => void updateProgress(lesson.id, lessonProgress + 25)}>
             Save progress heartbeat
           </button>
-          <button type="button" className="button-ghost" onClick={() => updateProgress(lesson.id, 100)}>
+          <button type="button" className="button-ghost" onClick={() => void updateProgress(lesson.id, 100)}>
             Mark complete
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={async () => {
+              const result = await issuePlaybackToken(lesson.slug, learners[0]?.id);
+              setPlaybackToken(result.token);
+              setWatermark(result.watermark);
+            }}
+          >
+            Issue playback token
           </button>
           <span className="status">{lessonProgress}% saved</span>
         </div>
+        {playbackToken ? <p className="small muted">Token: {playbackToken} • Watermark: {watermark}</p> : null}
       </div>
 
       <div className="panel">

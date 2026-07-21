@@ -1,10 +1,9 @@
 "use client";
 
 import { useAppState } from "@/components/app-state";
-import { allLessons } from "@/lib/data";
 
 export default function DoubtsPage() {
-  const { doubts } = useAppState();
+  const { doubts, course } = useAppState();
 
   return (
     <main className="shell stack">
@@ -16,7 +15,7 @@ export default function DoubtsPage() {
       <section className="panel">
         <div className="card-list">
           {doubts.map((doubt) => {
-            const lesson = allLessons.find((item) => item.id === doubt.lessonId);
+            const lesson = course.chapters.flatMap((chapter) => chapter.lessons).find((item) => item.id === doubt.lessonId);
 
             return (
               <div key={doubt.id} className="lesson-card">

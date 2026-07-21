@@ -45,10 +45,12 @@ export function PlanPicker() {
         ))}
       </div>
       <div className="actions">
-        <button type="button" className="button" onClick={handleBuy}>
+        <button type="button" className="button" onClick={() => void handleBuy()}>
           {hasEntitlement ? "Add another demo purchase" : "Unlock demo entitlement"}
         </button>
-        <span className="muted small">Mock checkout creates local entitlement immediately for all learner profiles.</span>
+        <span className="muted small">
+          Checkout now creates a persisted order, verifies a mock payment, and grants deterministic entitlements.
+        </span>
       </div>
     </div>
   );

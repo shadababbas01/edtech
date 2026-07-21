@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
 
-import { course } from "@/lib/data";
+import { useAppState } from "@/components/app-state";
 
 export default function CatalogPage() {
+  const { course } = useAppState();
+
   return (
     <main className="shell stack">
       <section className="hero">

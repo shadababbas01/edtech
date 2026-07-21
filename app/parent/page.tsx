@@ -4,8 +4,8 @@ import { useAppState } from "@/components/app-state";
 import { getDashboardMetrics } from "@/lib/helpers";
 
 export default function ParentDashboardPage() {
-  const { learners, parentName, purchases, progress, doubts } = useAppState();
-  const metrics = getDashboardMetrics(progress);
+  const { learners, parentName, purchases, progress, doubts, refunds, course } = useAppState();
+  const metrics = getDashboardMetrics(course, progress);
 
   return (
     <main className="shell stack">
@@ -29,8 +29,8 @@ export default function ParentDashboardPage() {
           <p className="metric-value">{metrics.completed}</p>
         </div>
         <div className="metric">
-          <h3>Open doubts</h3>
-          <p className="metric-value">{doubts.filter((item) => item.status === "Open").length}</p>
+          <h3>Open doubts / refunds</h3>
+          <p className="metric-value">{doubts.filter((item) => item.status === "Open").length + refunds.length}</p>
         </div>
       </section>
 
@@ -49,6 +49,7 @@ export default function ParentDashboardPage() {
             <span>Cancellation is self-serve and remains visible inside account settings in the production target.</span>
             <span>Refund handling for duplicate payments and technical non-delivery is prioritized.</span>
             <span>Child profiles are intentionally minimal and parent-controlled.</span>
+            <span>Persisted orders, support tickets and refund requests are visible to admin and support roles.</span>
           </div>
         </div>
       </section>

@@ -1,11 +1,11 @@
-import { allLessons, course } from "@/lib/data";
+import type { Course } from "@/lib/data";
 import type { ProgressMap } from "@/lib/types";
 
 export function formatPercent(value: number) {
   return `${Math.round(value)}%`;
 }
 
-export function getChapterProgress(progress: ProgressMap, chapterId: string) {
+export function getChapterProgress(course: Course, progress: ProgressMap, chapterId: string) {
   const chapter = course.chapters.find((item) => item.id === chapterId);
 
   if (!chapter) {
@@ -17,7 +17,8 @@ export function getChapterProgress(progress: ProgressMap, chapterId: string) {
   return total / values.length;
 }
 
-export function getNextLesson(progress: ProgressMap) {
+export function getNextLesson(course: Course, progress: ProgressMap) {
+  const allLessons = course.chapters.flatMap((chapter) => chapter.lessons);
   return allLessons.find((lesson) => (progress[lesson.id] ?? 0) < 100) ?? allLessons[0];
 }
 
@@ -25,7 +26,8 @@ export function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function getDashboardMetrics(progress: ProgressMap) {
+export function getDashboardMetrics(course: Course, progress: ProgressMap) {
+  const allLessons = course.chapters.flatMap((chapter) => chapter.lessons);
   const completed = allLessons.filter((lesson) => (progress[lesson.id] ?? 0) >= 100).length;
   const total = allLessons.length;
   const totalProgress =

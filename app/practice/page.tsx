@@ -1,11 +1,10 @@
 "use client";
 
 import { useAppState } from "@/components/app-state";
-import { course } from "@/lib/data";
 import { formatPercent, getChapterProgress } from "@/lib/helpers";
 
 export default function PracticePage() {
-  const { progress, quizAttempts } = useAppState();
+  const { progress, quizAttempts, course } = useAppState();
 
   return (
     <main className="shell stack">
@@ -18,7 +17,7 @@ export default function PracticePage() {
         {course.chapters.map((chapter) => (
           <div key={chapter.id} className="panel">
             <h3>{chapter.title}</h3>
-            <p className="metric-value">{formatPercent(getChapterProgress(progress, chapter.id))}</p>
+            <p className="metric-value">{formatPercent(getChapterProgress(course, progress, chapter.id))}</p>
             <p className="muted">Average lesson completion across this chapter.</p>
           </div>
         ))}
@@ -44,7 +43,11 @@ export default function PracticePage() {
             ) : (
               quizAttempts.map((attempt) => (
                 <tr key={attempt.submittedAt}>
-                  <td>{attempt.lessonId}</td>
+                  <td>
+                    {course.chapters
+                      .flatMap((chapter) => chapter.lessons)
+                      .find((lesson) => lesson.id === attempt.lessonId)?.title ?? attempt.lessonId}
+                  </td>
                   <td>{attempt.score}</td>
                   <td>{new Date(attempt.submittedAt).toLocaleString()}</td>
                 </tr>

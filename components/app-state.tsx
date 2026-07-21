@@ -1,222 +1,223 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-import { course, initialAdminChecklist, plans } from "@/lib/data";
-import { createId } from "@/lib/helpers";
-import type { DoubtThread, LearnerProfile, ProgressMap, Purchase, QuizAttempt, Ticket } from "@/lib/types";
+import type { AppSnapshot } from "@/lib/types";
 
-type AdminChecklistItem = {
-  area: string;
-  status: string;
-  note: string;
-};
-
-type AppStateValue = {
-  parentName: string;
+type AppStateValue = AppSnapshot & {
   setParentName: (value: string) => void;
-  learners: LearnerProfile[];
-  addLearner: (payload: Omit<LearnerProfile, "id">) => void;
-  purchases: Purchase[];
-  buyPlan: (planId: string, learnerIds: string[]) => void;
-  hasEntitlement: boolean;
-  progress: ProgressMap;
-  updateProgress: (lessonId: string, value: number) => void;
-  quizAttempts: QuizAttempt[];
-  submitQuizAttempt: (attempt: QuizAttempt) => void;
-  doubts: DoubtThread[];
-  submitDoubt: (payload: { lessonId: string; title: string; message: string }) => void;
-  tickets: Ticket[];
-  submitTicket: (payload: { topic: string; detail: string }) => void;
-  resolveTicket: (ticketId: string) => void;
-  adminChecklist: AdminChecklistItem[];
-  updateAdminChecklist: (area: string, status: string) => void;
+  saveParentProfile: () => Promise<void>;
+  addLearner: (payload: { name: string; classLevel: string; language: string }) => Promise<void>;
+  buyPlan: (planId: string, learnerIds: string[]) => Promise<void>;
+  updateProgress: (lessonId: string, value: number) => Promise<void>;
+  submitQuiz: (lessonId: string, answers: Record<string, string>) => Promise<{ score: number; totalQuestions: number }>;
+  submitDoubt: (payload: { lessonId: string; title: string; message: string }) => Promise<void>;
+  submitTicket: (payload: { topic: string; detail: string; orderId?: string }) => Promise<void>;
+  resolveTicket: (ticketId: string) => Promise<void>;
+  requestRefund: (orderId: string, reason: string) => Promise<void>;
+  reviewRefund: (refundId: string, action: "approve" | "reject" | "process") => Promise<void>;
+  joinLiveSession: (liveSessionId: string) => Promise<{ token: string }>;
+  issuePlaybackToken: (lessonSlug: string, learnerId?: string) => Promise<{ token: string; watermark: string }>;
+  updateAdminChecklist: (area: string, status: "Not started" | "In progress" | "Ready") => Promise<void>;
+  createPlan: (payload: { name: string; priceInr: number; durationDays: number; highlight: string; productCode: string }) => Promise<void>;
+  createLiveSession: (payload: {
+    title: string;
+    description: string;
+    startsAt: string;
+    durationMinutes: number;
+    mode: string;
+    hostName: string;
+  }) => Promise<void>;
+  updateCourseMetadata: (payload: { title: string; promise: string; subtitle: string }) => Promise<void>;
+  createChapter: (payload: { title: string; summary: string; target: string }) => Promise<void>;
+  createLesson: (payload: {
+    chapterId: string;
+    title: string;
+    summary: string;
+    topic: string;
+    duration: string;
+    isFree: boolean;
+  }) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
-const storageKey = "project-ganit-demo-state";
-
-type PersistedState = {
-  parentName: string;
-  learners: LearnerProfile[];
-  purchases: Purchase[];
-  progress: ProgressMap;
-  quizAttempts: QuizAttempt[];
-  doubts: DoubtThread[];
-  tickets: Ticket[];
-  adminChecklist: AdminChecklistItem[];
-};
-
-const defaultState: PersistedState = {
-  parentName: "",
-  learners: [
-    {
-      id: "learner-seed-1",
-      name: "Aarav",
-      classLevel: "Class 10",
-      language: "Bilingual"
-    }
-  ],
-  purchases: [],
-  progress: {
-    "l-1": 100,
-    "l-2": 35
-  },
-  quizAttempts: [],
-  doubts: [
-    {
-      id: "doubt-seed-1",
-      lessonId: "l-2",
-      title: "Why use Euclid here instead of prime factors?",
-      message: "I can do factor trees but freeze on bigger numbers.",
-      status: "Answered",
-      response: "Use Euclid when factorization feels slow. Start with repeated division and stop once remainder becomes zero."
-    }
-  ],
-  tickets: [
-    {
-      id: "ticket-seed-1",
-      topic: "Refund policy question",
-      detail: "Please explain when chapter-pass upgrades get credited.",
-      status: "In review"
-    }
-  ],
-  adminChecklist: initialAdminChecklist
-};
-
-export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistedState>(defaultState);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(storageKey);
-    if (!stored) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as PersistedState;
-      setState(parsed);
-    } catch {
-      setState(defaultState);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [state]);
-
-  const value: AppStateValue = {
-    parentName: state.parentName,
-    setParentName: (value) => {
-      setState((current) => ({ ...current, parentName: value }));
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {})
     },
-    learners: state.learners,
-    addLearner: (payload) => {
-      setState((current) => ({
-        ...current,
-        learners: [...current.learners, { ...payload, id: createId("learner") }]
-      }));
-    },
-    purchases: state.purchases,
-    buyPlan: (planId, learnerIds) => {
-      const chosenPlan = plans.find((plan) => plan.id === planId);
-      if (!chosenPlan || learnerIds.length === 0) {
-        return;
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Request failed");
+  }
+
+  return (await response.json()) as T;
+}
+
+export function AppStateProvider({
+  children,
+  initialSnapshot
+}: {
+  children: ReactNode;
+  initialSnapshot: AppSnapshot;
+}) {
+  const [snapshot, setSnapshot] = useState<AppSnapshot>(initialSnapshot);
+
+  const value = useMemo<AppStateValue>(
+    () => ({
+      ...snapshot,
+      setParentName: (value) => {
+        setSnapshot((current) => ({ ...current, parentName: value }));
+      },
+      saveParentProfile: async () => {
+        await request("/api/learners", {
+          method: "POST",
+          body: JSON.stringify({ parentName: snapshot.parentName })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      addLearner: async (payload) => {
+        await request("/api/learners", {
+          method: "POST",
+          body: JSON.stringify({
+            parentName: snapshot.parentName,
+            learnerName: payload.name,
+            classLevel: payload.classLevel,
+            language: payload.language
+          })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      buyPlan: async (planId, learnerIds) => {
+        const checkout = await request<{ orderId: string }>("/api/checkout", {
+          method: "POST",
+          body: JSON.stringify({ planId, learnerIds })
+        });
+        await request("/api/payments/verify", {
+          method: "POST",
+          body: JSON.stringify({ orderId: checkout.orderId, method: "mock-upi" })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      updateProgress: async (lessonId, value) => {
+        await request("/api/progress", {
+          method: "POST",
+          body: JSON.stringify({ lessonId, percent: value })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      submitQuiz: async (lessonId, answers) => {
+        const result = await request<{ score: number; totalQuestions: number }>("/api/quiz-attempts", {
+          method: "POST",
+          body: JSON.stringify({ lessonId, answers })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+        return result;
+      },
+      submitDoubt: async (payload) => {
+        await request("/api/doubts", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      submitTicket: async (payload) => {
+        await request("/api/support-tickets", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      resolveTicket: async (ticketId) => {
+        await request(`/api/support-tickets/${ticketId}/resolve`, { method: "POST", body: JSON.stringify({}) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      requestRefund: async (orderId, reason) => {
+        await request("/api/refunds", {
+          method: "POST",
+          body: JSON.stringify({ orderId, reason })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      reviewRefund: async (refundId, action) => {
+        await request(`/api/refunds/${refundId}`, {
+          method: "POST",
+          body: JSON.stringify({ action })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      joinLiveSession: async (liveSessionId) => request(`/api/live/${liveSessionId}/join`, { method: "POST", body: JSON.stringify({}) }),
+      issuePlaybackToken: async (lessonSlug, learnerId) =>
+        request("/api/playback-token", {
+          method: "POST",
+          body: JSON.stringify({ lessonSlug, learnerId })
+        }),
+      updateAdminChecklist: async (area, status) => {
+        await request("/api/admin/checklist", {
+          method: "PATCH",
+          body: JSON.stringify({ area, status })
+        });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      createPlan: async (payload) => {
+        await request("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      createLiveSession: async (payload) => {
+        await request("/api/admin/live-sessions", { method: "POST", body: JSON.stringify(payload) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      updateCourseMetadata: async (payload) => {
+        await request("/api/admin/course", { method: "PATCH", body: JSON.stringify(payload) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      createChapter: async (payload) => {
+        await request("/api/admin/chapters", { method: "POST", body: JSON.stringify(payload) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      createLesson: async (payload) => {
+        await request("/api/admin/lessons", { method: "POST", body: JSON.stringify(payload) });
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
+      },
+      refresh: async () => {
+        const next = await request<AppSnapshot>("/api/state");
+        setSnapshot(next);
       }
-
-      setState((current) => ({
-        ...current,
-        purchases: [
-          {
-            id: createId("purchase"),
-            planId,
-            learnerIds,
-            createdAt: new Date().toISOString()
-          },
-          ...current.purchases
-        ]
-      }));
-    },
-    hasEntitlement: state.purchases.length > 0,
-    progress: state.progress,
-    updateProgress: (lessonId, value) => {
-      setState((current) => ({
-        ...current,
-        progress: {
-          ...current.progress,
-          [lessonId]: Math.min(100, Math.max(current.progress[lessonId] ?? 0, value))
-        }
-      }));
-    },
-    quizAttempts: state.quizAttempts,
-    submitQuizAttempt: (attempt) => {
-      setState((current) => ({
-        ...current,
-        quizAttempts: [attempt, ...current.quizAttempts]
-      }));
-    },
-    doubts: state.doubts,
-    submitDoubt: (payload) => {
-      setState((current) => ({
-        ...current,
-        doubts: [
-          {
-            id: createId("doubt"),
-            lessonId: payload.lessonId,
-            title: payload.title,
-            message: payload.message,
-            status: "Open"
-          },
-          ...current.doubts
-        ]
-      }));
-    },
-    tickets: state.tickets,
-    submitTicket: (payload) => {
-      setState((current) => ({
-        ...current,
-        tickets: [
-          {
-            id: createId("ticket"),
-            topic: payload.topic,
-            detail: payload.detail,
-            status: "Open"
-          },
-          ...current.tickets
-        ]
-      }));
-    },
-    resolveTicket: (ticketId) => {
-      setState((current) => ({
-        ...current,
-        tickets: current.tickets.map((ticket) =>
-          ticket.id === ticketId ? { ...ticket, status: "Resolved" } : ticket
-        )
-      }));
-    },
-    adminChecklist: state.adminChecklist,
-    updateAdminChecklist: (area, status) => {
-      setState((current) => ({
-        ...current,
-        adminChecklist: current.adminChecklist.map((item) =>
-          item.area === area ? { ...item, status } : item
-        )
-      }));
-    }
-  };
+    }),
+    [snapshot]
+  );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 
 export function useAppState() {
   const context = useContext(AppStateContext);
-
   if (!context) {
     throw new Error("useAppState must be used within AppStateProvider");
   }
 
   return context;
 }
-
-export const seededCourseTitle = course.title;

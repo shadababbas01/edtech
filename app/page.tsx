@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
 
 import { ParentOnboardingForm } from "@/components/forms";
 import { PlanPicker } from "@/components/plan-picker";
-import { course, liveSessions, supportPlaybook } from "@/lib/data";
+import { useAppState } from "@/components/app-state";
+import { supportPlaybook } from "@/lib/data";
 
 export default function HomePage() {
+  const { course, liveSessions } = useAppState();
+
   return (
     <main className="shell stack">
       <section className="hero">
@@ -20,18 +25,18 @@ export default function HomePage() {
               <Link href="/catalog" className="button">
                 Explore course map
               </Link>
-              <Link href="/learn/real-numbers-foundations" className="button-secondary">
+              <Link href={`/learn/${course.chapters[0]?.lessons[0]?.slug ?? "real-numbers-foundations"}`} className="button-secondary">
                 Start free sample lesson
               </Link>
             </div>
           </div>
           <div className="panel">
-            <h3>Phase 1 scope</h3>
+            <h3>Phase 2 status</h3>
             <div className="card-list">
-              <span>Responsive learner web app and PWA shell</span>
-              <span>Parent-owned account with learner profiles</span>
-              <span>Recorded lessons, quizzes, doubts and live session access</span>
-              <span>Quarterly and annual subscriptions as the core commercial model</span>
+              <span>Server-backed onboarding, orders, payments and entitlements</span>
+              <span>Playback token issuance with concurrency handoff</span>
+              <span>Persisted doubts, tickets, refunds, live attendance and admin controls</span>
+              <span>Embedded migration/seed scripts for local demo operation</span>
             </div>
           </div>
         </div>
@@ -41,22 +46,22 @@ export default function HomePage() {
         <div className="metric">
           <h3>Course</h3>
           <p className="metric-value">1</p>
-          <p className="muted">Focused launch around Class 10 NCERT Mathematics</p>
+          <p className="muted">Focused launch around {course.title}</p>
         </div>
         <div className="metric">
           <h3>Chapters seeded</h3>
           <p className="metric-value">{course.chapters.length}</p>
-          <p className="muted">Seeded curriculum with free and premium lessons</p>
+          <p className="muted">Curriculum now loads from the server-backed store</p>
         </div>
         <div className="metric">
           <h3>Live sessions</h3>
           <p className="metric-value">{liveSessions.length}</p>
-          <p className="muted">Doubt and revision events ready for learner join flow</p>
+          <p className="muted">Join-token flow and attendance persistence are active</p>
         </div>
         <div className="metric">
           <h3>Parent trust</h3>
           <p className="metric-value">Visible</p>
-          <p className="muted">Refund, cancellation and safety communication surfaced in-product</p>
+          <p className="muted">Refund, cancellation and support workflow remain surfaced in-product</p>
         </div>
       </section>
 
@@ -68,7 +73,7 @@ export default function HomePage() {
             <span>Chapter sequencing instead of random topic hopping</span>
             <span>Progress evidence for learners and parents</span>
             <span>Practice, doubt resolution and live support around each lesson</span>
-            <span>Clear plan pricing, cancellation path and support response framing</span>
+            <span>Persisted payments, entitlements and issue resolution trails</span>
           </div>
         </div>
       </section>
